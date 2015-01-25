@@ -1,0 +1,16 @@
+Tu so primeri ukazov, ki se uporabljajo pri delu z uporabniškim vmestnikom:
+
+Krožnica čez 3 točke:
+T1;s|T2;s|T3;s
+
+Krožnica cez tocko, tangentno na 2:
+T1;s|K1;t|K2;t
+
+Krožnica tangentna na 3 kroznice:
+K3;t|K1;t|K2;t
+
+Vcrtana kroznica (ANTI):
+P3;t|P1;t|P2;t
+
+Za tri različne stvari:
+P1;t|T1;s|K1;t
