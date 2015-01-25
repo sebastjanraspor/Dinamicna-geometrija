@@ -1,7 +1,8 @@
 module OsnovneStrukture where
 
-data Circle a = Circle {p, a, b, k::a} deriving (Show, Eq) 
-type Known = Double
+import Circle
+-- data Circle a = Circle {p, a, b, k::a} deriving (Show, Eq) 
+-- type Known = Double
 data OsnovniObjekt a = Tocka (a,a) | Kroznica (a,a) a | Premica (a,a) (a,a) deriving (Show, Eq) 
 	
 --tr je okrajsava za transformacija
