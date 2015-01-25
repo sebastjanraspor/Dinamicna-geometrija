@@ -31,56 +31,60 @@ Performs various calculations on circles.
 >     Circle (R p 0 0 0) (R a 0 0 0) (R b 0 0 0) (R k 0 0 0)
 
 
+
+
 ----- Human-friendly descriptions of circles -----
 Convert circles to a format that is easier to read and understand
 
-> circle :: Double -> Double -> Double -> Circle Known
-> circle x y r = Circle 1 x y (x ^ 2 + y ^ 2 - r ^ 2)
+> anticlockwise_circle :: Double -> Double -> Double -> Circle Known
+> anticlockwise_circle x y r = Circle 1 x y (x ^ 2 + y ^ 2 - r ^ 2)
+
+> clockwise_circle :: Double -> Double -> Double -> Circle Known
+> clockwise_circle x y r = Circle (-1) (-x) (-y) (r ^ 2 - x ^ 2 - y ^ 2)
+
+-- > line :: Double -> Double -> Circle Known
+-- > line d theta = Circle 0 (-sin theta) (cos theta) (2 * d)
 
 > line :: Double -> Double -> Double -> Double -> Circle Known
 > line x1 y1 x2 y2
->     | x1 /= x2 = Circle 0 c 1 d
->     | otherwise = Circle 1 1 0 (-x1)
->     where
->     c = (y2-y1)/(x1-x2)
->     d = -c*x1 - y1
-
-Lines are shown in a format "line x y". The values coordintates x and y
-are the intersections of the line with x and y axis, respectively.
-      
-
+>    | x1 == x2 = Circle 0 (-s2*1/2) 0 (-s2*x1)
+>    | y1 == y2 = Circle 0 0 (s1*1/2) (s1*y1)
+>    | otherwise = Circle 0  (-s1*k/2) (s1*1/2) (-s1*k*x1 + s1*y1)
+>    where
+>    k = (y1-y2)/(x1-x2)
+>    s2 = (y2-y1)/abs(y2-y1)
+>    s1 = (x2-x1)/abs(x2-x1)
 
 > instance Show (Circle Known)
 >   where
->   show c@(Circle p a b k)
->     | {is_line = unwords ["line", show x, show y]
->       where (x, y) = axes_intersection c}
->     | otherwise   = unwords ["circle", show x, show y, show r]
+>   show (Circle p a b k)
+>     | is_line = unwords ["line", show d, show theta]
+>     | p > 0   = unwords ["anticlockwise_circle", show x, show y, show r]
+>     | p < 0   = unwords ["clockwise_circle", show x, show y, show r]
 >     where
 >     is_line = a ^ 2 + b ^ 2 - k * p >= 1e18 * p ^ 2
 >     x = a / p
 >     y = b / p
 >     r = sqrt (x ^ 2 + y ^ 2 - k / p)
+>     d = k / 2 / sqrt (a ^ 2 + b ^ 2)
+>     theta = atan2 (-a) b
+>     show x = showParen (x < 0) (shows x) ""
 
+> instance Read (Circle Known)
+>   where
+>   readsPrec _ = readParen False $ \s1 ->
+>     [(anticlockwise_circle x y r, s5) |
+>       ("anticlockwise_circle", s2) <- lex s1,
+>       (x, s3) <- reads s2,
+>       (y, s4) <- reads s3,
+>       (r, s5) <- reads s4] ++
+>     [(clockwise_circle x y r, s5) |
+>       ("clockwise_circle", s2) <- lex s1,
+>       (x, s3) <- reads s2,
+>       (y, s4) <- reads s3,
+>       (r, s5) <- reads s4] 
 
--- >     d = k / 2 / sqrt (a ^ 2 + b ^ 2)
--- >     theta = atan2 (-a) b
--- >     show x = showParen (x < 0) (shows x) ""
-
--- > instance Read (Circle Known)
--- >   where
--- >   readsPrec _ = readParen False $ \s1 ->
--- >     [(anticlockwise_circle x y r, s5) |
--- >       ("anticlockwise_circle", s2) <- lex s1,
--- >       (x, s3) <- reads s2,
--- >       (y, s4) <- reads s3,
--- >       (r, s5) <- reads s4] ++
--- >     [(clockwise_circle x y r, s5) |
--- >       ("clockwise_circle", s2) <- lex s1,
--- >       (x, s3) <- reads s2,
--- >       (y, s4) <- reads s3,
--- >       (r, s5) <- reads s4] -- ++
-
+-- ++
 -- >     [(line d theta, s4) |
 -- >       ("line", s2) <- lex s1,
 -- >       (d, s3) <- reads s2,
@@ -90,6 +94,10 @@ are the intersections of the line with x and y axis, respectively.
 
 
 ----- Find circles satisfying constraints -----
+This is what this library is all about. Rather than calculating an exact
+formula for solving each individual problem we may encounter, we provide a
+set of constraints that the solution must satisfy. This gives us great
+flexibility.
 
 > newtype Results = Rs {unRs :: [Result]}
 
@@ -101,14 +109,10 @@ are the intersections of the line with x and y axis, respectively.
 
 > find :: Circle Known -> (Circle Unknown -> Results) -> Circle Known
 > find c@(Circle p a b k) constraints =
->   let variables [p, a, b] = [R p 1 0 0, R a 0 1 0, R b 0 0 1] in
->   circ c $ newton_raphson [p, a, b] (unRs . constraints . (circ c) . variables)
+>   validate $ circle c $ newton_raphson [p, a, b] (unRs . constraints . circle c)
 
---> find_all :: Double -> Double -> Double -> (Circle Unknown -> Results) -> Circle Known
---> find_all a b acc constraints =
-
-> circ :: CircleType a => Circle Known -> [a] -> Circle a
-> circ c [p', a', b'] = Circle p' a' b' k'
+> circle :: CircleType a => Circle Known -> [a] -> Circle a
+> circle c [p', a', b'] = Circle p' a' b' k'
 >   where
 >   Circle p a b k = coerce_circle c
 >   x = (p' - p) * (p' + p) + (a' - a) * (a' + a) + (b' - b) * (b' + b)
@@ -116,12 +120,12 @@ are the intersections of the line with x and y axis, respectively.
 >     | k <  0 = k + x
 >     | k >= 0 = k - x
 
-> valid :: Circle Known -> Bool
-> valid (Circle p a b k)
->   | any isNaN params      = False --error "Circle: NaN"
->   | any isInfinite params = False --error "Circle: Infinity"
->   | imaginary             = False --error "Circle: Imaginary"
->   | otherwise             = True
+> validate :: Circle Known -> Circle Known
+> validate c@(Circle p a b k)
+>   | any isNaN params      = error "Circle: NaN"
+>   | any isInfinite params = error "Circle: Infinity"
+>   | imaginary             = error "Circle: Imaginary"
+>   | otherwise             = c
 >   where
 >   params = [p, a, b, k]
 >   imaginary = a ^ 2 + b ^ 2 - k * p < 0
@@ -129,40 +133,29 @@ are the intersections of the line with x and y axis, respectively.
 
 ----- Intersections
 
-> pr :: Double ->  Integer -> Result
+> pr :: Double -> Integer -> Result
 > pr x 1 = R x 1 0 0
 > pr y 2 = R y 0 1 0
 > pr z 3 = R z 0 0 1
 
 > circle_function :: Double -> Double -> Double -> Circle Double -> Result
 > circle_function x y z (Circle p a b k) = val
->   where
->   xx = pr x 1
->   yy = pr y 2
->   pp = coerce_constant p
->   aa = coerce_constant (2*a)
->   bb = coerce_constant (2*b)
->   kk = coerce_constant k
->   val = pp*(xx^2 + yy^2) - aa*xx - bb*yy + kk
+>    where
+>    xx = pr x 1
+>    yy = pr y 2
+>    pp = coerce_constant p
+>    aa = coerce_constant (2*a)
+>    bb = coerce_constant (2*b)
+>    kk = coerce_constant k
+>    val = pp*(xx^2 + yy^2) - aa*xx - bb*yy + kk
 
 > intersection :: Double -> Double -> Circle Known -> Circle Known -> (Double, Double)
-> intersection x0 y0 c1 c2 = (result !! 0, result !! 1)
->   where
->   f [x, y, z] = [circle_function x y z c1, circle_function x y z c2, R 0 0 0 1]
->   result = newton_raphson [x0, y0, 0] f
+> intersection x0 y0 c1 c2 = (a, b)
+>    where
+>       f [(R x _ _ _), (R y _ _ _), (R z _ _ _)] = [circle_function x y z c1, circle_function x y z c2, R 0 0 0 1]
+>       a:b:_ = newton_raphson [x0, y0, 0] f
 
-> axes_intersection :: Circle Known -> (Double, Double)
-> axes_intersection (Circle p a b k) = (x', y')
->   where
->   x = k/(2*a)
->   y = k/(2*b)
->   x' | th1 <= 1e-18 = 1/0
->      | otherwise = x
->      where th1 = abs ((atan2 x y) - pi/2) + abs ((atan2 x y) + pi/2
->   y' | th2 <= 1e-18 = 1/0
->      | otherwise = y
->      where th2 = abs ((atan2 y x) - pi/2) + abs ((atan2 y x) + pi/2
-
+----- Circle transformers -----
 Various useful ways to transform circles.
 
 > reverse_circle :: CircleType a => Circle a -> Circle a
@@ -214,19 +207,41 @@ Various useful ways to transform circles.
 > crossing_angle :: Double -> Circle Known -> Circle Unknown -> Results
 > crossing_angle theta c1 c2 = Rs [value]
 >   where
+
+
+-- >   k = coerce_constant (cos theta)
+-- >   Circle p1 a1 b1 k1 = coerce_circle c1
+-- >   Circle p2 a2 b2 k2 = c2
+-- >   v1 = a1 ^ 2 + b1 ^ 2 - k1 * p1
+-- >   v2 = a2 ^ 2 + b2 ^ 2 - k2 * p2
+-- >   a = k1 * p2
+-- >   b = k2 * p1
+-- >   c = - 2 * a1 * a2
+-- >   d = - 2 * b1 * b2
+-- >   value = v1*v2 - (a+b+c+d)^2/(2*k)^2
+
 >   c = coerce_constant (cos theta)
 >   Circle p1 a1 b1 k1 = coerce_circle c1
 >   Circle p2 a2 b2 k2 = c2
->   --sqrt1 = sqrt (a1 ^ 2 + b1 ^ 2 - k1 * p1)
->   --sqrt2 = sqrt (a2 ^ 2 + b2 ^ 2 - k2 * p2)
->   --value = k1 * p2 + k2 * p1 + 2 * sqrt1 * sqrt2 * c - 2 * a1 * a2 - 2 * b1 * b2
->   val1 = a1 ^ 2 + b1 ^ 2 - k1 * p1
->   val2 = a2 ^ 2 + b2 ^ 2 - k2 * p2
->   val3 = k1 * p2 + k2 * p1 - 2 * a1 * a2 - 2 * b1 * b2
->   value = (2*c*val1*val2)^2 - val3^2
+>   sqrt1 = sqrt (a1 ^ 2 + b1 ^ 2 - k1 * p1)
+>   sqrt2 = sqrt (a2 ^ 2 + b2 ^ 2 - k2 * p2)
+>   value = k1 * p2 + k2 * p1 + 2 * sqrt1 * sqrt2 * c - 2 * a1 * a2 - 2 * b1 * b2
+
+> crossing_angle' :: Double -> Circle Known -> Circle Unknown -> Results
+> crossing_angle' theta c1 c2 = Rs [value]
+>   where
+>   c = coerce_constant (cos theta)
+>   Circle p1 a1 b1 k1 = coerce_circle c1
+>   Circle p2 a2 b2 k2 = c2
+>   sqrt1 = sqrt (a1 ^ 2 + b1 ^ 2 - k1 * p1)
+>   sqrt2 = sqrt (a2 ^ 2 + b2 ^ 2 - k2 * p2)
+>   value = k1 * p2 + k2 * p1 - 2 * sqrt1 * sqrt2 * c - 2 * a1 * a2 - 2 * b1 * b2
 
 > tangent_to :: Circle Known -> Circle Unknown -> Results
 > tangent_to = crossing_angle 0
+
+> tangent_to' :: Circle Known -> Circle Unknown -> Results
+> tangent_to' = crossing_angle' 0
 
 > anticlockwise_radius :: Double -> Circle Unknown -> Results
 > anticlockwise_radius r (Circle p a b k) = Rs [value]
