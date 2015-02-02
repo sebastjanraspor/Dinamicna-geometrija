@@ -25,3 +25,26 @@ Primeri vnosov v ukazno vrstico:
 (K1,t);(K2,t);(T1,s)
 (T1,s);(T2,s);(T3,s)
 (T1,s);(T2,s);(K1,t)
+(P1,t);(P2,t);(P3,t)
+(T1,s);(T2,s);(P1,t)
+(T1,c);(T2,s);(T2,s)## tole sedaj lepo dela
+(T1,c);(P1,t);(P2,t)## predolocen
+(T1,s);(P1,t);(P2,t)## zanimivo (rocno to zahtevno skonstruirati: treba dobro premislit)
+
+
+Uporaben link (PDF) format:
+https://www.overleaf.com/2184060cmxwsy#/5573576/
+
+Linki do clankov:
+
+Clanek o konstrukciji zelezniskih tirov: (na tej strani placljivo)
+http://journals.cambridge.org/action/displayAbstract?fromPage=online&aid=8279559&fileId=S0956796811000086
+naslov, avtor:
+A combinator library for the design of railway track layouts
+BARNEY STRATFORD
+
+Uporabniski vmestnik s pomocjo HTk:
+http://www.informatik.uni-bremen.de/htk/intro/intro.pdf
+naslov, avtor:
+A Short Introduction to HTk
+Christoph Luth
