@@ -68,6 +68,7 @@ vrniVseKrozniceKiZadoscajoP k0 pogojiSez = map (fffKrZapis k0) (poisciVseMozneKo
     where
         fffKrZapis k0 x = find k0 $ satisfying x
         poisciVseMozneKombinacije [a,b,c] = [[k1,k2,k3]|k1 <- a, k2 <- b, k3 <- c]
+        poisciVseMozneKombinacije [a,b] = [[k1,k2]|k1 <- a, k2 <- b]
 
 vrniVseKrozniceKiZadoscajo k0 sezPogoji = rrr
     where
